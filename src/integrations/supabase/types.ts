@@ -14,7 +14,139 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      doctor_details: {
+        Row: {
+          availability_hours: string | null
+          consultation_fee: number | null
+          created_at: string
+          hospital_affiliation: string | null
+          id: string
+          license_number: string
+          specialization: string
+          updated_at: string
+          user_id: string
+          years_of_experience: number | null
+        }
+        Insert: {
+          availability_hours?: string | null
+          consultation_fee?: number | null
+          created_at?: string
+          hospital_affiliation?: string | null
+          id?: string
+          license_number: string
+          specialization: string
+          updated_at?: string
+          user_id: string
+          years_of_experience?: number | null
+        }
+        Update: {
+          availability_hours?: string | null
+          consultation_fee?: number | null
+          created_at?: string
+          hospital_affiliation?: string | null
+          id?: string
+          license_number?: string
+          specialization?: string
+          updated_at?: string
+          user_id?: string
+          years_of_experience?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "doctor_details_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      patient_details: {
+        Row: {
+          allergies: string[] | null
+          created_at: string
+          current_medications: string[] | null
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
+          id: string
+          insurance_id: string | null
+          insurance_provider: string | null
+          medical_history: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          allergies?: string[] | null
+          created_at?: string
+          current_medications?: string[] | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          id?: string
+          insurance_id?: string | null
+          insurance_provider?: string | null
+          medical_history?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          allergies?: string[] | null
+          created_at?: string
+          current_medications?: string[] | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          id?: string
+          insurance_id?: string | null
+          insurance_provider?: string | null
+          medical_history?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_details_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          date_of_birth: string | null
+          email: string
+          full_name: string
+          id: string
+          phone: string | null
+          role: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          date_of_birth?: string | null
+          email: string
+          full_name: string
+          id?: string
+          phone?: string | null
+          role: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          date_of_birth?: string | null
+          email?: string
+          full_name?: string
+          id?: string
+          phone?: string | null
+          role?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
