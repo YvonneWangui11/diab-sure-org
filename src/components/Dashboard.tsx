@@ -16,43 +16,58 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { MedicationManager } from "./MedicationManager";
+
+interface UserProfile {
+  id: string;
+  user_id: string;
+  full_name: string;
+  email: string;
+  phone?: string;
+  date_of_birth?: string;
+  role: string;
+}
+
+interface PatientDetails {
+  id: string;
+  emergency_contact_name?: string;
+  emergency_contact_phone?: string;
+  insurance_provider?: string;
+  insurance_id?: string;
+  medical_history?: string;
+  current_medications?: string[];
+  allergies?: string[];
+}
+
+interface Medication {
+  id: string;
+  medication_name: string;
+  dosage: string;
+  frequency: string;
+  instructions?: string;
+  start_date: string;
+  end_date?: string;
+  is_active: boolean;
+  patient_id: string;
+  doctor_id: string;
+}
+
+interface MedicationLog {
+  id: string;
+  medication_id: string;
+  taken_at: string;
+  status: string;
+  notes?: string;
+}
 
 export const Dashboard = () => {
-  const [userProfile, setUserProfile] = useState<any>(null);
-  const [patientDetails, setPatientDetails] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [patientDetails, setPatientDetails] = useState<PatientDetails | null>(null);
+  const [medications, setMedications] = useState<Medication[]>([]);
+  const [medicationLogs, setMedicationLogs] = useState<MedicationLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('overview');
   const { toast } = useToast();
-
-  useEffect(() => {
-    loadUserData();
-    
-    // Set up real-time subscription
-    const channel = supabase
-      .channel('profile-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'profiles'
-        },
-        () => loadUserData()
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'patient_details'
-        },
-        () => loadUserData()
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
 
   const loadUserData = async () => {
     try {
@@ -78,6 +93,28 @@ export const Dashboard = () => {
             .single();
           
           setPatientDetails(patientData);
+
+          // Load medications for this patient
+          const { data: meds, error: medsError } = await supabase
+            .from('medications')
+            .select('*')
+            .eq('patient_id', user.id)
+            .eq('is_active', true)
+            .order('created_at', { ascending: false });
+
+          if (medsError) throw medsError;
+          setMedications(meds || []);
+
+          // Load recent medication logs
+          const { data: logs, error: logsError } = await supabase
+            .from('medication_logs')
+            .select('*')
+            .eq('patient_id', user.id)
+            .order('taken_at', { ascending: false })
+            .limit(10);
+
+          if (logsError) throw logsError;
+          setMedicationLogs(logs || []);
         }
       }
     } catch (error) {
@@ -92,6 +129,70 @@ export const Dashboard = () => {
     }
   };
 
+  useEffect(() => {
+    loadUserData();
+    
+    // Set up real-time subscriptions
+    const profileSubscription = supabase
+      .channel('profile-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'profiles'
+        },
+        () => loadUserData()
+      )
+      .subscribe();
+
+    const patientSubscription = supabase
+      .channel('patient-details-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'patient_details'
+        },
+        () => loadUserData()
+      )
+      .subscribe();
+
+    const medicationsSubscription = supabase
+      .channel('medications-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'medications'
+        },
+        () => loadUserData()
+      )
+      .subscribe();
+
+    const logsSubscription = supabase
+      .channel('medication-logs-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'medication_logs'
+        },
+        () => loadUserData()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(profileSubscription);
+      supabase.removeChannel(patientSubscription);
+      supabase.removeChannel(medicationsSubscription);
+      supabase.removeChannel(logsSubscription);
+    };
+  }, []);
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -102,7 +203,51 @@ export const Dashboard = () => {
 
   const getWelcomeMessage = () => {
     if (!userProfile) return "Welcome back!";
-    return `Welcome back, ${userProfile.full_name}!`;
+    const firstName = userProfile.full_name?.split(' ')[0] || 'User';
+    return `Welcome back, ${firstName}!`;
+  };
+
+  const getTodaysMedicationStats = () => {
+    const today = new Date().toDateString();
+    const todaysLogs = medicationLogs.filter(log => 
+      new Date(log.taken_at).toDateString() === today
+    );
+    
+    return {
+      totalMedications: medications.length,
+      takenToday: todaysLogs.length,
+      compliance: medications.length > 0 ? Math.round((todaysLogs.length / medications.length) * 100) : 0
+    };
+  };
+
+  const markMedicationAsTaken = async (medicationId: string) => {
+    if (!userProfile) return;
+    
+    try {
+      const { error } = await supabase
+        .from('medication_logs')
+        .insert({
+          medication_id: medicationId,
+          patient_id: userProfile.user_id,
+          status: 'taken',
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Medication marked as taken",
+      });
+
+      loadUserData();
+    } catch (error) {
+      console.error('Error marking medication as taken:', error);
+      toast({
+        title: "Error",
+        description: "Failed to log medication",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -119,177 +264,219 @@ export const Dashboard = () => {
         </Badge>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="bg-gradient-card shadow-card">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Blood Glucose</p>
-                <p className="text-2xl font-bold text-foreground">126 mg/dL</p>
-                <p className="text-xs text-success">Within target range</p>
-              </div>
-              <Heart className="h-8 w-8 text-primary" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-card shadow-card">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Medication</p>
-                <p className="text-2xl font-bold text-foreground">2/3</p>
-                <p className="text-xs text-warning">1 dose remaining</p>
-              </div>
-              <Pill className="h-8 w-8 text-secondary" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-card shadow-card">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Exercise Today</p>
-                <p className="text-2xl font-bold text-foreground">45 min</p>
-                <p className="text-xs text-success">Goal achieved</p>
-              </div>
-              <Activity className="h-8 w-8 text-accent" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-card shadow-card">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Next Appointment</p>
-                <p className="text-2xl font-bold text-foreground">3 days</p>
-                <p className="text-xs text-muted-foreground">Dr. Kamau</p>
-              </div>
-              <Calendar className="h-8 w-8 text-primary" />
-            </div>
-          </CardContent>
-        </Card>
+      {/* Navigation Tabs */}
+      <div className="flex space-x-1 mb-6">
+        <Button 
+          variant={activeTab === 'overview' ? 'default' : 'ghost'}
+          onClick={() => setActiveTab('overview')}
+        >
+          Overview
+        </Button>
+        <Button 
+          variant={activeTab === 'medications' ? 'default' : 'ghost'}
+          onClick={() => setActiveTab('medications')}
+        >
+          Medications
+        </Button>
       </div>
 
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Recent Readings */}
-        <Card className="lg:col-span-2 shadow-card">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-primary" />
-              Recent Glucose Readings
-            </CardTitle>
-            <CardDescription>Your glucose levels over the past week</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {[
-                { date: "Today 8:00 AM", value: 126, status: "normal" },
-                { date: "Yesterday 8:00 AM", value: 134, status: "normal" },
-                { date: "2 days ago 8:00 AM", value: 118, status: "normal" },
-                { date: "3 days ago 8:00 AM", value: 142, status: "high" },
-              ].map((reading, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+      {activeTab === 'overview' && (
+        <>
+          {/* Quick Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <Card className="bg-gradient-card shadow-card cursor-pointer hover:shadow-lg transition-shadow">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium">{reading.value} mg/dL</p>
-                    <p className="text-sm text-muted-foreground">{reading.date}</p>
+                    <p className="text-sm font-medium text-muted-foreground">Blood Glucose</p>
+                    <p className="text-2xl font-bold text-foreground">--</p>
+                    <p className="text-xs text-muted-foreground">No readings yet</p>
                   </div>
-                  <Badge 
-                    variant={reading.status === "normal" ? "secondary" : "destructive"}
-                    className={reading.status === "normal" ? "bg-success text-success-foreground" : ""}
+                  <Heart className="h-8 w-8 text-primary" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card 
+              className="bg-gradient-card shadow-card cursor-pointer hover:shadow-lg transition-shadow" 
+              onClick={() => setActiveTab('medications')}
+            >
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Medication</p>
+                    <p className="text-2xl font-bold text-foreground">
+                      {getTodaysMedicationStats().takenToday}/{getTodaysMedicationStats().totalMedications}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Today's doses</p>
+                  </div>
+                  <Pill className="h-8 w-8 text-secondary" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gradient-card shadow-card cursor-pointer hover:shadow-lg transition-shadow">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Exercise Today</p>
+                    <p className="text-2xl font-bold text-foreground">--</p>
+                    <p className="text-xs text-muted-foreground">No data yet</p>
+                  </div>
+                  <Activity className="h-8 w-8 text-accent" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gradient-card shadow-card cursor-pointer hover:shadow-lg transition-shadow">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Next Appointment</p>
+                    <p className="text-2xl font-bold text-foreground">--</p>
+                    <p className="text-xs text-muted-foreground">No upcoming</p>
+                  </div>
+                  <Calendar className="h-8 w-8 text-primary" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Main Content Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Recent Medication Logs */}
+            <Card className="lg:col-span-2 shadow-card">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Pill className="h-5 w-5 text-primary" />
+                  Recent Medication Logs
+                </CardTitle>
+                <CardDescription>Your medication intake history</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {medicationLogs.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Pill className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                      <p className="text-muted-foreground">No medication logs yet</p>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Start tracking your medications by clicking on the medications tab
+                      </p>
+                    </div>
+                  ) : (
+                    medicationLogs.slice(0, 5).map((log) => {
+                      const medication = medications.find(med => med.id === log.medication_id);
+                      return (
+                        <div key={log.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                          <div>
+                            <p className="font-medium">{medication?.medication_name || 'Unknown'}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {new Date(log.taken_at).toLocaleDateString()} at {new Date(log.taken_at).toLocaleTimeString()}
+                            </p>
+                          </div>
+                          <Badge className="bg-success text-success-foreground">
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            Taken
+                          </Badge>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Quick Actions & Alerts */}
+            <div className="space-y-6">
+              {/* Alerts */}
+              <Card className="shadow-card">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5 text-warning" />
+                    Alerts & Reminders
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {medications.length > 0 ? (
+                    medications.slice(0, 2).map((medication) => (
+                      <div key={medication.id} className="flex items-start gap-3 p-3 bg-primary/10 rounded-lg border border-primary/20">
+                        <Clock className="h-4 w-4 text-primary mt-0.5" />
+                        <div className="text-sm">
+                          <p className="font-medium">Medication Reminder</p>
+                          <p className="text-muted-foreground">{medication.medication_name} - {medication.frequency}</p>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-4">
+                      <p className="text-sm text-muted-foreground">No active medications</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Quick Actions */}
+              <Card className="shadow-card">
+                <CardHeader>
+                  <CardTitle>Quick Actions</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <Button className="w-full" variant="default">
+                    <Heart className="h-4 w-4 mr-2" />
+                    Log Glucose Reading
+                  </Button>
+                  <Button 
+                    className="w-full" 
+                    variant="secondary"
+                    onClick={() => setActiveTab('medications')}
                   >
-                    {reading.status === "normal" ? "Normal" : "High"}
-                  </Badge>
-                </div>
-              ))}
+                    <Pill className="h-4 w-4 mr-2" />
+                    View Medications
+                  </Button>
+                  <Button className="w-full" variant="outline">
+                    <Apple className="h-4 w-4 mr-2" />
+                    Log Meal
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Progress */}
+              <Card className="shadow-card">
+                <CardHeader>
+                  <CardTitle>Weekly Progress</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <div className="flex justify-between mb-2">
+                      <span className="text-sm font-medium">Medication Adherence</span>
+                      <span className="text-sm text-muted-foreground">{getTodaysMedicationStats().compliance}%</span>
+                    </div>
+                    <Progress value={getTodaysMedicationStats().compliance} className="h-2" />
+                  </div>
+                  <div>
+                    <div className="flex justify-between mb-2">
+                      <span className="text-sm font-medium">Exercise Goals</span>
+                      <span className="text-sm text-muted-foreground">0%</span>
+                    </div>
+                    <Progress value={0} className="h-2" />
+                  </div>
+                  <div>
+                    <div className="flex justify-between mb-2">
+                      <span className="text-sm font-medium">Glucose in Range</span>
+                      <span className="text-sm text-muted-foreground">0%</span>
+                    </div>
+                    <Progress value={0} className="h-2" />
+                  </div>
+                </CardContent>
+              </Card>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </>
+      )}
 
-        {/* Quick Actions & Alerts */}
-        <div className="space-y-6">
-          {/* Alerts */}
-          <Card className="shadow-card">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-warning" />
-                Alerts & Reminders
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-start gap-3 p-3 bg-warning/10 rounded-lg border border-warning/20">
-                <Clock className="h-4 w-4 text-warning mt-0.5" />
-                <div className="text-sm">
-                  <p className="font-medium">Medication Reminder</p>
-                  <p className="text-muted-foreground">Take Metformin in 2 hours</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3 p-3 bg-primary/10 rounded-lg border border-primary/20">
-                <Calendar className="h-4 w-4 text-primary mt-0.5" />
-                <div className="text-sm">
-                  <p className="font-medium">Upcoming Appointment</p>
-                  <p className="text-muted-foreground">Dr. Kamau - Friday 10:00 AM</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Quick Actions */}
-          <Card className="shadow-card">
-            <CardHeader>
-              <CardTitle>Quick Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Button className="w-full" variant="default">
-                <Heart className="h-4 w-4 mr-2" />
-                Log Glucose Reading
-              </Button>
-              <Button className="w-full" variant="secondary">
-                <Pill className="h-4 w-4 mr-2" />
-                Mark Medication Taken
-              </Button>
-              <Button className="w-full" variant="outline">
-                <Apple className="h-4 w-4 mr-2" />
-                Log Meal
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Progress */}
-          <Card className="shadow-card">
-            <CardHeader>
-              <CardTitle>Weekly Progress</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <div className="flex justify-between mb-2">
-                  <span className="text-sm font-medium">Medication Adherence</span>
-                  <span className="text-sm text-muted-foreground">85%</span>
-                </div>
-                <Progress value={85} className="h-2" />
-              </div>
-              <div>
-                <div className="flex justify-between mb-2">
-                  <span className="text-sm font-medium">Exercise Goals</span>
-                  <span className="text-sm text-muted-foreground">92%</span>
-                </div>
-                <Progress value={92} className="h-2" />
-              </div>
-              <div>
-                <div className="flex justify-between mb-2">
-                  <span className="text-sm font-medium">Glucose in Range</span>
-                  <span className="text-sm text-muted-foreground">78%</span>
-                </div>
-                <Progress value={78} className="h-2" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+      {activeTab === 'medications' && userProfile && (
+        <MedicationManager userRole={userProfile.role} userId={userProfile.user_id} />
+      )}
     </div>
   );
 };
