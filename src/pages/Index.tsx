@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Navigation } from "@/components/Navigation";
 import { Dashboard } from "@/components/Dashboard";
 import { DoctorDashboard } from "@/components/DoctorDashboard";
+import { AdminDashboard } from "@/components/AdminDashboard";
 import { NutritionTracking } from "@/components/NutritionTracking";
 import { ExerciseTracking } from "@/components/ExerciseTracking";
 import { AppointmentViewing } from "@/components/AppointmentViewing";
@@ -83,6 +84,7 @@ const Index = () => {
   const renderCurrentPage = () => {
     switch (currentPage) {
       case "dashboard":
+        if (userRole === 'admin') return <AdminDashboard />;
         return userRole === 'clinician' ? <DoctorDashboard /> : <Dashboard />;
       case "nutrition":
         return userId ? <NutritionTracking userId={userId} /> : null;
@@ -97,6 +99,7 @@ const Index = () => {
       case "profile":
         return <ProfilePage onSignOut={handleSignOut} />;
       default:
+        if (userRole === 'admin') return <AdminDashboard />;
         return userRole === 'clinician' ? <DoctorDashboard /> : <Dashboard />;
     }
   };
