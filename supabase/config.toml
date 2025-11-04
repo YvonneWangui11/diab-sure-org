@@ -1,1 +1,4 @@
 project_id = "iynqladfgyhfpwadmtgd"
+
+[functions.ask-yvonne]
+verify_jwt = false

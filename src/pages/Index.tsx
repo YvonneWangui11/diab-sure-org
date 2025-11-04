@@ -10,6 +10,7 @@ import { ProgressDashboard } from "@/components/ProgressDashboard";
 import { ProfilePage } from "@/components/ProfilePage";
 import { LandingPage } from "@/components/LandingPage";
 import { AuthPage } from "@/components/AuthPage";
+import { AskYvonne } from "@/components/AskYvonne";
 import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
@@ -98,6 +99,8 @@ const Index = () => {
         return <div className="p-8 text-center"><h2 className="text-2xl font-bold">Education Module Coming Soon</h2></div>;
       case "profile":
         return <ProfilePage onSignOut={handleSignOut} />;
+      case "ask-yvonne":
+        return <AskYvonne />;
       default:
         if (userRole === 'admin') return <AdminDashboard />;
         return userRole === 'clinician' ? <DoctorDashboard /> : <Dashboard />;

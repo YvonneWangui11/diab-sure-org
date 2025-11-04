@@ -88,6 +88,8 @@ export const NutritionTracking = ({ userId }: NutritionTrackingProps) => {
     fat: "",
     type: "breakfast" as const
   });
+  const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const dailyTargets = {
     calories: 2000,
@@ -146,6 +148,27 @@ export const NutritionTracking = ({ userId }: NutritionTrackingProps) => {
     if (!newMeal.name || !newMeal.calories) return;
 
     try {
+      setUploading(true);
+      let photoUrl = null;
+
+      // Upload photo if selected
+      if (selectedPhoto) {
+        const fileExt = selectedPhoto.name.split('.').pop();
+        const filePath = `${userId}/${Date.now()}.${fileExt}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('meal-photos')
+          .upload(filePath, selectedPhoto);
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('meal-photos')
+          .getPublicUrl(filePath);
+
+        photoUrl = publicUrl;
+      }
+
       const { error } = await supabase
         .from('meal_logs')
         .insert({
@@ -153,6 +176,7 @@ export const NutritionTracking = ({ userId }: NutritionTrackingProps) => {
           meal_type: newMeal.type,
           description: `${newMeal.name} - ${newMeal.calories}cal, C:${newMeal.carbs}g, P:${newMeal.protein}g, F:${newMeal.fat}g`,
           portion_size: newMeal.calories,
+          photo_url: photoUrl,
         });
 
       if (error) throw error;
@@ -170,6 +194,7 @@ export const NutritionTracking = ({ userId }: NutritionTrackingProps) => {
         fat: "",
         type: "breakfast"
       });
+      setSelectedPhoto(null);
 
       loadMealLogs();
     } catch (error) {
@@ -179,6 +204,8 @@ export const NutritionTracking = ({ userId }: NutritionTrackingProps) => {
         description: "Failed to log meal",
         variant: "destructive",
       });
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -345,9 +372,24 @@ export const NutritionTracking = ({ userId }: NutritionTrackingProps) => {
                   />
                 </div>
               </div>
-              <Button onClick={addMeal} className="w-full md:w-auto">
+              <div>
+                <Label htmlFor="meal-photo">Meal Photo (Optional)</Label>
+                <Input
+                  id="meal-photo"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setSelectedPhoto(e.target.files?.[0] || null)}
+                  className="cursor-pointer"
+                />
+                {selectedPhoto && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Selected: {selectedPhoto.name}
+                  </p>
+                )}
+              </div>
+              <Button onClick={addMeal} disabled={uploading} className="w-full md:w-auto">
                 <Plus className="h-4 w-4 mr-2" />
-                Add Meal
+                {uploading ? "Uploading..." : "Add Meal"}
               </Button>
             </CardContent>
           </Card>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Menu, X, Heart, Activity, Calendar, BookOpen, User, LogOut, TrendingUp, Apple, Dumbbell } from "lucide-react";
+import { Menu, X, Heart, Activity, Calendar, BookOpen, User, LogOut, TrendingUp, Apple, Dumbbell, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface NavigationProps {
@@ -17,6 +17,7 @@ export const Navigation = ({ currentPage, onPageChange, onSignOut }: NavigationP
     { id: "exercise", label: "Exercise", icon: Dumbbell },
     { id: "appointments", label: "Appointments", icon: Calendar },
     { id: "progress", label: "Progress", icon: TrendingUp },
+    { id: "ask-yvonne", label: "Ask Yvonne", icon: MessageCircle },
     { id: "education", label: "Education", icon: BookOpen },
     { id: "profile", label: "Profile", icon: User },
   ];
