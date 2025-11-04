@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, Clock, MapPin, User, FileText } from "lucide-react";
+import { Calendar, Clock, MapPin, User, FileText, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { exportAppointmentToCalendar, exportAllAppointments } from "@/utils/calendarExport";
 
 interface Appointment {
   id: string;
@@ -129,7 +130,25 @@ export const AppointmentViewing = ({ userId }: AppointmentViewingProps) => {
 
       {/* Upcoming Appointments */}
       <div className="space-y-4">
-        <h3 className="text-xl font-semibold">Upcoming Appointments</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-xl font-semibold">Upcoming Appointments</h3>
+          {upcomingAppointments.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                exportAllAppointments(upcomingAppointments);
+                toast({
+                  title: "Success",
+                  description: "Appointments exported to calendar file",
+                });
+              }}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Export All
+            </Button>
+          )}
+        </div>
         {upcomingAppointments.length === 0 ? (
           <Card>
             <CardContent className="text-center py-8">
@@ -185,7 +204,18 @@ export const AppointmentViewing = ({ userId }: AppointmentViewingProps) => {
                     </div>
                   )}
                   <div className="flex gap-2 pt-2">
-                    <Button size="sm" variant="default">
+                    <Button
+                      size="sm"
+                      variant="default"
+                      onClick={() => {
+                        exportAppointmentToCalendar(appointment);
+                        toast({
+                          title: "Success",
+                          description: "Appointment exported to calendar file",
+                        });
+                      }}
+                    >
+                      <Calendar className="h-4 w-4 mr-2" />
                       Add to Calendar
                     </Button>
                     <Button size="sm" variant="outline">
