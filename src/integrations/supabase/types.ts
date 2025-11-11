@@ -452,6 +452,47 @@ export type Database = {
           },
         ]
       }
+      medication_reminders: {
+        Row: {
+          created_at: string | null
+          days_of_week: number[] | null
+          id: string
+          is_active: boolean | null
+          medication_id: string
+          patient_id: string
+          reminder_time: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          days_of_week?: number[] | null
+          id?: string
+          is_active?: boolean | null
+          medication_id: string
+          patient_id: string
+          reminder_time: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          days_of_week?: number[] | null
+          id?: string
+          is_active?: boolean | null
+          medication_id?: string
+          patient_id?: string
+          reminder_time?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medication_reminders_medication_id_fkey"
+            columns: ["medication_id"]
+            isOneToOne: false
+            referencedRelation: "medications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       medications: {
         Row: {
           created_at: string
@@ -542,6 +583,48 @@ export type Database = {
           template_id?: string | null
           to_clinician_id?: string | null
           to_patient_id?: string | null
+        }
+        Relationships: []
+      }
+      notification_preferences: {
+        Row: {
+          appointment_reminders: boolean | null
+          created_at: string | null
+          email_enabled: boolean | null
+          id: string
+          medication_reminders: boolean | null
+          push_enabled: boolean | null
+          refill_alerts: boolean | null
+          reminder_advance_minutes: number | null
+          sms_enabled: boolean | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          appointment_reminders?: boolean | null
+          created_at?: string | null
+          email_enabled?: boolean | null
+          id?: string
+          medication_reminders?: boolean | null
+          push_enabled?: boolean | null
+          refill_alerts?: boolean | null
+          reminder_advance_minutes?: number | null
+          sms_enabled?: boolean | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          appointment_reminders?: boolean | null
+          created_at?: string | null
+          email_enabled?: boolean | null
+          id?: string
+          medication_reminders?: boolean | null
+          push_enabled?: boolean | null
+          refill_alerts?: boolean | null
+          reminder_advance_minutes?: number | null
+          sms_enabled?: boolean | null
+          updated_at?: string | null
+          user_id?: string
         }
         Relationships: []
       }
@@ -684,6 +767,36 @@ export type Database = {
           phone?: string | null
           sex?: string | null
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string | null
+          endpoint: string
+          id: string
+          p256dh: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string | null
+          endpoint: string
+          id?: string
+          p256dh: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string | null
+          endpoint?: string
+          id?: string
+          p256dh?: string
+          user_agent?: string | null
           user_id?: string
         }
         Relationships: []
