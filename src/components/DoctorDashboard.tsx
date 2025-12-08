@@ -2,13 +2,14 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Users, Calendar, Activity, TrendingUp } from "lucide-react";
+import { Users, Calendar, Activity, TrendingUp, MessageSquare } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { MedicationManager } from "./MedicationManager";
 import { PatientList } from "./PatientList";
 import { AppointmentScheduling } from "./AppointmentScheduling";
 import { PatientProgressView } from "./PatientProgressView";
+import { MessagingCenter } from "./MessagingCenter";
 
 export const DoctorDashboard = () => {
   const [userProfile, setUserProfile] = useState<any>(null);
@@ -149,6 +150,13 @@ export const DoctorDashboard = () => {
         >
           Medications
         </Button>
+        <Button 
+          variant={activeTab === 'messages' ? 'default' : 'ghost'}
+          onClick={() => setActiveTab('messages')}
+        >
+          <MessageSquare className="h-4 w-4 mr-2" />
+          Messages
+        </Button>
       </div>
 
       {activeTab === 'overview' && (
@@ -254,6 +262,10 @@ export const DoctorDashboard = () => {
 
       {activeTab === 'medications' && userProfile && (
         <MedicationManager userRole="doctor" userId={userProfile.user_id} />
+      )}
+
+      {activeTab === 'messages' && (
+        <MessagingCenter userRole="clinician" />
       )}
     </div>
   );

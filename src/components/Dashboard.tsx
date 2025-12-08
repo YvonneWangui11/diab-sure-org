@@ -12,11 +12,13 @@ import {
   TrendingUp, 
   AlertTriangle,
   CheckCircle,
-  Clock
+  Clock,
+  MessageSquare
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { MedicationManager } from "./MedicationManager";
+import { MessagingCenter } from "./MessagingCenter";
 
 interface UserProfile {
   id: string;
@@ -311,6 +313,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
         >
           Medications
         </Button>
+        <Button 
+          variant={activeTab === 'messages' ? 'default' : 'ghost'}
+          onClick={() => setActiveTab('messages')}
+        >
+          <MessageSquare className="h-4 w-4 mr-2" />
+          Messages
+        </Button>
       </div>
 
       {activeTab === 'overview' && (
@@ -530,6 +539,10 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
 
       {activeTab === 'medications' && userProfile && (
         <MedicationManager userRole={userRole} userId={userProfile.user_id} />
+      )}
+
+      {activeTab === 'messages' && (
+        <MessagingCenter userRole="patient" />
       )}
     </div>
   );
