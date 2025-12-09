@@ -9,7 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { MessageSquare, Send, Plus, User, Clock, CheckCheck, Search } from "lucide-react";
+import { MessageSquare, Send, Plus, User, Clock, CheckCheck, Search, Bell } from "lucide-react";
 import { format } from "date-fns";
 
 interface Message {
@@ -43,8 +43,11 @@ export const MessagingCenter = ({ userRole }: MessagingCenterProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [hasNewMessage, setHasNewMessage] = useState(false);
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const initialLoadRef = useRef(true);
 
   const [newMessage, setNewMessage] = useState({
     to_patient_id: "",
@@ -53,6 +56,21 @@ export const MessagingCenter = ({ userRole }: MessagingCenterProps) => {
   });
 
   const isClinician = userRole === "clinician" || userRole === "admin";
+
+  // Initialize notification sound
+  useEffect(() => {
+    audioRef.current = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3");
+    audioRef.current.volume = 0.5;
+  }, []);
+
+  const playNotificationSound = () => {
+    if (audioRef.current) {
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().catch(() => {
+        // Audio play failed - likely due to browser autoplay policy
+      });
+    }
+  };
 
   useEffect(() => {
     initializeData();
@@ -63,7 +81,32 @@ export const MessagingCenter = ({ userRole }: MessagingCenterProps) => {
       .on(
         "postgres_changes",
         {
-          event: "*",
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+        },
+        (payload) => {
+          const newMsg = payload.new as Message;
+          
+          // Only notify if message is NOT from current user
+          if (newMsg.from_user_id !== currentUserId && !initialLoadRef.current) {
+            playNotificationSound();
+            setHasNewMessage(true);
+            
+            toast({
+              title: "New Message",
+              description: "You have received a new message",
+              duration: 4000,
+            });
+          }
+          
+          loadMessages();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
           schema: "public",
           table: "messages",
         },
@@ -76,7 +119,14 @@ export const MessagingCenter = ({ userRole }: MessagingCenterProps) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [currentUserId]);
+
+  // Clear new message indicator when viewing conversation
+  useEffect(() => {
+    if (selectedConversation) {
+      setHasNewMessage(false);
+    }
+  }, [selectedConversation]);
 
   useEffect(() => {
     scrollToBottom();
@@ -98,6 +148,10 @@ export const MessagingCenter = ({ userRole }: MessagingCenterProps) => {
       console.error("Error initializing data:", error);
     } finally {
       setLoading(false);
+      // Mark initial load complete after a short delay to avoid false notifications
+      setTimeout(() => {
+        initialLoadRef.current = false;
+      }, 1000);
     }
   };
 
@@ -293,8 +347,19 @@ export const MessagingCenter = ({ userRole }: MessagingCenterProps) => {
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <MessageSquare className="h-5 w-5" />
+              <div className="relative">
+                <MessageSquare className="h-5 w-5" />
+                {hasNewMessage && (
+                  <span className="absolute -top-1 -right-1 h-3 w-3 bg-destructive rounded-full animate-pulse" />
+                )}
+              </div>
               Messages
+              {hasNewMessage && (
+                <Badge variant="destructive" className="ml-2 animate-bounce">
+                  <Bell className="h-3 w-3 mr-1" />
+                  New
+                </Badge>
+              )}
             </CardTitle>
             <CardDescription>
               {isClinician ? "Send and receive messages with your patients" : "View messages from your healthcare team"}
