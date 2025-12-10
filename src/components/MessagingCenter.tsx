@@ -124,12 +124,37 @@ export const MessagingCenter = ({ userRole }: MessagingCenterProps) => {
     };
   }, [currentUserId]);
 
-  // Clear new message indicator when viewing conversation
+  // Mark messages as read and clear new message indicator when viewing conversation
   useEffect(() => {
-    if (selectedConversation) {
+    if (selectedConversation && currentUserId) {
       setHasNewMessage(false);
+      markMessagesAsRead(selectedConversation);
     }
-  }, [selectedConversation]);
+  }, [selectedConversation, currentUserId]);
+
+  const markMessagesAsRead = async (partnerId: string) => {
+    try {
+      // Find unread messages from this partner to current user
+      const unreadMessages = messages.filter(msg => 
+        msg.from_user_id === partnerId &&
+        (msg.to_patient_id === currentUserId || msg.to_clinician_id === currentUserId) &&
+        !msg.read_at
+      );
+
+      if (unreadMessages.length === 0) return;
+
+      const messageIds = unreadMessages.map(msg => msg.id);
+      
+      const { error } = await supabase
+        .from("messages")
+        .update({ read_at: new Date().toISOString() })
+        .in("id", messageIds);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error("Error marking messages as read:", error);
+    }
+  };
 
   // Set up presence channel for typing indicators
   useEffect(() => {
@@ -595,8 +620,13 @@ export const MessagingCenter = ({ userRole }: MessagingCenterProps) => {
                           <div className={`flex items-center gap-1 mt-2 text-xs ${isOwn ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
                             <Clock className="h-3 w-3" />
                             {format(new Date(msg.created_at), "p")}
-                            {isOwn && msg.read_at && (
-                              <CheckCheck className="h-3 w-3 ml-1" />
+                            {isOwn && (
+                              <span className="flex items-center ml-1" title={msg.read_at ? `Read ${format(new Date(msg.read_at), "PP p")}` : "Sent"}>
+                                <CheckCheck className={`h-3 w-3 ${msg.read_at ? "text-blue-400" : "opacity-50"}`} />
+                                {msg.read_at && (
+                                  <span className="ml-1 text-blue-400">Read</span>
+                                )}
+                              </span>
                             )}
                           </div>
                         </div>
