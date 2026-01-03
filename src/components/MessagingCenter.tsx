@@ -9,7 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { MessageSquare, Send, Plus, User, Clock, CheckCheck, Search, Bell, Smile, Pin, PinOff, Reply, ChevronDown, ChevronRight } from "lucide-react";
+import { MessageSquare, Send, Plus, User, Clock, CheckCheck, Search, Bell, Smile, Pin, PinOff, Reply, ChevronDown, ChevronRight, Paperclip, X, FileText, Image as ImageIcon, Download } from "lucide-react";
 import { format } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -45,6 +45,9 @@ interface Message {
   created_at: string;
   parent_message_id: string | null;
   thread_id: string | null;
+  attachment_url: string | null;
+  attachment_name: string | null;
+  attachment_type: string | null;
 }
 
 interface UserProfile {
@@ -73,6 +76,9 @@ export const MessagingCenter = ({ userRole }: MessagingCenterProps) => {
   const [activeTab, setActiveTab] = useState("conversations");
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set());
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -554,12 +560,84 @@ export const MessagingCenter = ({ userRole }: MessagingCenterProps) => {
 
   const [replyContent, setReplyContent] = useState("");
 
+  const uploadFile = async (file: File): Promise<{ url: string; name: string; type: string } | null> => {
+    if (!currentUserId) return null;
+    
+    setUploadingFile(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${currentUserId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('message-attachments')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('message-attachments')
+        .getPublicUrl(fileName);
+
+      return {
+        url: publicUrl,
+        name: file.name,
+        type: file.type,
+      };
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      toast({
+        variant: "destructive",
+        title: "Upload failed",
+        description: error.message,
+      });
+      return null;
+    } finally {
+      setUploadingFile(false);
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Check file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        toast({
+          variant: "destructive",
+          title: "File too large",
+          description: "Maximum file size is 10MB",
+        });
+        return;
+      }
+      setSelectedFile(file);
+    }
+  };
+
+  const removeSelectedFile = () => {
+    setSelectedFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const isImageFile = (type: string | null) => {
+    return type?.startsWith('image/');
+  };
+
   const sendReply = async () => {
-    if (!selectedConversation || !replyContent.trim()) return;
+    if (!selectedConversation || (!replyContent.trim() && !selectedFile)) return;
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
+
+      // Upload file if selected
+      let attachmentData: { url: string; name: string; type: string } | null = null;
+      if (selectedFile) {
+        attachmentData = await uploadFile(selectedFile);
+        if (!attachmentData && selectedFile) {
+          return; // Upload failed, don't send message
+        }
+      }
 
       // Calculate thread_id: use existing thread_id or the parent message's id
       let threadId = null;
@@ -572,20 +650,26 @@ export const MessagingCenter = ({ userRole }: MessagingCenterProps) => {
         ? {
             from_user_id: user.id,
             to_patient_id: selectedConversation,
-            content: replyContent,
+            content: replyContent || (attachmentData ? `📎 ${attachmentData.name}` : ''),
             status: "sent",
             sent_at: new Date().toISOString(),
             parent_message_id: replyingTo?.id || null,
             thread_id: threadId,
+            attachment_url: attachmentData?.url || null,
+            attachment_name: attachmentData?.name || null,
+            attachment_type: attachmentData?.type || null,
           }
         : {
             from_user_id: user.id,
             to_clinician_id: selectedConversation,
-            content: replyContent,
+            content: replyContent || (attachmentData ? `📎 ${attachmentData.name}` : ''),
             status: "sent",
             sent_at: new Date().toISOString(),
             parent_message_id: replyingTo?.id || null,
             thread_id: threadId,
+            attachment_url: attachmentData?.url || null,
+            attachment_name: attachmentData?.name || null,
+            attachment_type: attachmentData?.type || null,
           };
 
       const { error } = await supabase.from("messages").insert(messageData);
@@ -599,6 +683,10 @@ export const MessagingCenter = ({ userRole }: MessagingCenterProps) => {
 
       setReplyContent("");
       setReplyingTo(null);
+      setSelectedFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
       stopTyping();
     } catch (error: any) {
       toast({
@@ -942,6 +1030,34 @@ export const MessagingCenter = ({ userRole }: MessagingCenterProps) => {
                                 </p>
                               )}
                               <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                              
+                              {/* Attachment display */}
+                              {msg.attachment_url && (
+                                <div className={`mt-2 ${isOwn ? "text-primary-foreground" : ""}`}>
+                                  {isImageFile(msg.attachment_type) ? (
+                                    <div className="relative">
+                                      <img 
+                                        src={msg.attachment_url} 
+                                        alt={msg.attachment_name || "Attachment"}
+                                        className="max-w-[200px] max-h-[200px] rounded-md object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                                        onClick={() => window.open(msg.attachment_url!, '_blank')}
+                                      />
+                                    </div>
+                                  ) : (
+                                    <a 
+                                      href={msg.attachment_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className={`flex items-center gap-2 p-2 rounded-md border ${isOwn ? "border-primary-foreground/30 hover:bg-primary-foreground/10" : "border-border bg-background hover:bg-accent"} transition-colors`}
+                                    >
+                                      <FileText className="h-4 w-4 flex-shrink-0" />
+                                      <span className="text-xs truncate max-w-[150px]">{msg.attachment_name}</span>
+                                      <Download className="h-3 w-3 flex-shrink-0" />
+                                    </a>
+                                  )}
+                                </div>
+                              )}
+                              
                               <div className={`flex items-center gap-1 mt-2 text-xs ${isOwn ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
                                 <Clock className="h-3 w-3" />
                                 {format(new Date(msg.created_at), "p")}
@@ -1156,33 +1272,81 @@ export const MessagingCenter = ({ userRole }: MessagingCenterProps) => {
                 </div>
               )}
               
+              {/* Selected file preview */}
+              {selectedFile && (
+                <div className="px-3 py-2 border-t bg-muted/30 flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm">
+                    {isImageFile(selectedFile.type) ? (
+                      <ImageIcon className="h-4 w-4 text-primary" />
+                    ) : (
+                      <FileText className="h-4 w-4 text-primary" />
+                    )}
+                    <span className="truncate max-w-[200px]">{selectedFile.name}</span>
+                    <span className="text-muted-foreground text-xs">
+                      ({(selectedFile.size / 1024).toFixed(1)} KB)
+                    </span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0"
+                    onClick={removeSelectedFile}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+              
               {/* Reply input - shown for both clinicians and patients */}
               <div className="p-3 border-t">
                 <div className="flex gap-2">
-                  <Textarea
-                    placeholder={replyingTo ? "Type your reply..." : "Type a message..."}
-                    className="min-h-[60px] resize-none"
-                    value={replyContent}
-                    onChange={(e) => {
-                      setReplyContent(e.target.value);
-                      handleTyping();
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        if (replyContent.trim()) {
-                          sendReply();
+                  <div className="flex-1 flex flex-col gap-2">
+                    <Textarea
+                      placeholder={replyingTo ? "Type your reply..." : "Type a message..."}
+                      className="min-h-[60px] resize-none"
+                      value={replyContent}
+                      onChange={(e) => {
+                        setReplyContent(e.target.value);
+                        handleTyping();
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          if (replyContent.trim() || selectedFile) {
+                            sendReply();
+                          }
                         }
-                      }
-                    }}
-                  />
-                  <Button 
-                    onClick={sendReply}
-                    disabled={!replyContent.trim()}
-                    className="self-end"
-                  >
-                    <Send className="h-4 w-4" />
-                  </Button>
+                      }}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2 self-end">
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileSelect}
+                      className="hidden"
+                      accept="image/*,.pdf,.doc,.docx,.txt"
+                    />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadingFile}
+                      title="Attach file"
+                    >
+                      <Paperclip className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      onClick={sendReply}
+                      disabled={(!replyContent.trim() && !selectedFile) || uploadingFile}
+                    >
+                      {uploadingFile ? (
+                        <div className="h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Send className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </div>
             </>

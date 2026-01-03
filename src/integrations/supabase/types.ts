@@ -680,6 +680,9 @@ export type Database = {
       }
       messages: {
         Row: {
+          attachment_name: string | null
+          attachment_type: string | null
+          attachment_url: string | null
           channel: string | null
           content: string
           created_at: string
@@ -697,6 +700,9 @@ export type Database = {
           to_patient_id: string | null
         }
         Insert: {
+          attachment_name?: string | null
+          attachment_type?: string | null
+          attachment_url?: string | null
           channel?: string | null
           content: string
           created_at?: string
@@ -714,6 +720,9 @@ export type Database = {
           to_patient_id?: string | null
         }
         Update: {
+          attachment_name?: string | null
+          attachment_type?: string | null
+          attachment_url?: string | null
           channel?: string | null
           content?: string
           created_at?: string
