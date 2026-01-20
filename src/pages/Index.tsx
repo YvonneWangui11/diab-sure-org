@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
-import { Navigation } from "@/components/Navigation";
-import { Dashboard } from "@/components/Dashboard";
-import { DoctorDashboard } from "@/components/DoctorDashboard";
+import { PatientNavigation } from "@/components/PatientNavigation";
+import { ClinicianNavigation } from "@/components/ClinicianNavigation";
+import { AdminNavigation } from "@/components/AdminNavigation";
+import { PatientDashboard } from "@/components/PatientDashboard";
+import { ClinicianDashboard } from "@/components/ClinicianDashboard";
 import { AdminDashboard } from "@/components/AdminDashboard";
 import { GlucoseTracking } from "@/components/GlucoseTracking";
 import { NutritionTrackingEnhanced } from "@/components/NutritionTrackingEnhanced";
@@ -14,9 +16,10 @@ import { LandingPage } from "@/components/LandingPage";
 import { AuthPage } from "@/components/AuthPage";
 import { FloatingYvonneButton } from "@/components/FloatingYvonneButton";
 import { PageLoader } from "@/components/LoadingSpinner";
+import { MedicationTracking } from "@/components/MedicationTracking";
+import { MessagingCenter } from "@/components/MessagingCenter";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-
 const Index = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userRole, setUserRole] = useState<string>("");
@@ -136,29 +139,62 @@ const Index = () => {
     }
   };
 
-  const renderCurrentPage = () => {
-    switch (currentPage) {
-      case "dashboard":
-        if (userRole === 'admin') return <AdminDashboard />;
-        return userRole === 'clinician' ? <DoctorDashboard /> : <Dashboard onNavigate={setCurrentPage} />;
-      case "glucose":
-        return userId ? <GlucoseTracking userId={userId} /> : null;
-      case "nutrition":
-        return userId ? <NutritionTrackingEnhanced userId={userId} /> : null;
-      case "exercise":
-        return userId ? <ExerciseTrackingEnhanced userId={userId} /> : null;
-      case "appointments":
-        return userId ? <AppointmentViewing userId={userId} /> : null;
-      case "progress":
-        return userId ? <ProgressDashboard userId={userId} /> : null;
-      case "education":
-        return <EducationHub />;
-      case "profile":
-        return <ProfilePage onSignOut={handleSignOut} />;
-      default:
-        if (userRole === 'admin') return <AdminDashboard />;
-        return userRole === 'clinician' ? <DoctorDashboard /> : <Dashboard onNavigate={setCurrentPage} />;
+  const renderContent = () => {
+    // Patient-specific pages
+    if (userRole === 'patient') {
+      switch (currentPage) {
+        case "dashboard":
+          return <PatientDashboard userId={userId} onNavigate={setCurrentPage} />;
+        case "glucose":
+          return <GlucoseTracking userId={userId} />;
+        case "nutrition":
+          return <NutritionTrackingEnhanced userId={userId} />;
+        case "exercise":
+          return <ExerciseTrackingEnhanced userId={userId} />;
+        case "medications":
+          return <MedicationTracking userId={userId} />;
+        case "appointments":
+          return <AppointmentViewing userId={userId} />;
+        case "progress":
+          return <ProgressDashboard userId={userId} />;
+        case "education":
+          return <EducationHub />;
+        case "messages":
+          return <MessagingCenter userRole="patient" />;
+        case "profile":
+          return <ProfilePage onSignOut={handleSignOut} />;
+        default:
+          return <PatientDashboard userId={userId} onNavigate={setCurrentPage} />;
+      }
     }
+
+    // Clinician pages
+    if (userRole === 'clinician') {
+      if (currentPage === 'profile') {
+        return <ProfilePage onSignOut={handleSignOut} />;
+      }
+      return <ClinicianDashboard userId={userId} currentPage={currentPage} onNavigate={setCurrentPage} />;
+    }
+
+    // Admin pages
+    if (userRole === 'admin') {
+      if (currentPage === 'profile') {
+        return <ProfilePage onSignOut={handleSignOut} />;
+      }
+      return <AdminDashboard />;
+    }
+
+    return <PatientDashboard userId={userId} onNavigate={setCurrentPage} />;
+  };
+
+  const renderNavigation = () => {
+    if (userRole === 'admin') {
+      return <AdminNavigation currentPage={currentPage} onPageChange={setCurrentPage} onSignOut={handleSignOut} />;
+    }
+    if (userRole === 'clinician') {
+      return <ClinicianNavigation currentPage={currentPage} onPageChange={setCurrentPage} onSignOut={handleSignOut} />;
+    }
+    return <PatientNavigation currentPage={currentPage} onPageChange={setCurrentPage} onSignOut={handleSignOut} />;
   };
 
   // Show loading state during initialization
@@ -176,13 +212,9 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navigation 
-        currentPage={currentPage} 
-        onPageChange={setCurrentPage}
-        onSignOut={handleSignOut}
-      />
+      {renderNavigation()}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {renderCurrentPage()}
+        {renderContent()}
       </main>
       <FloatingYvonneButton />
     </div>
