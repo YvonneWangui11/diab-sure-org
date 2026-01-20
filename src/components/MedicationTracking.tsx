@@ -17,8 +17,11 @@ import {
   Bell,
   Package
 } from "lucide-react";
+interface MedicationTrackingProps {
+  userId?: string;
+}
 
-export const MedicationTracking = () => {
+export const MedicationTracking = ({ userId }: MedicationTrackingProps) => {
   const [isAddingMedication, setIsAddingMedication] = useState(false);
 
   const medications = [
