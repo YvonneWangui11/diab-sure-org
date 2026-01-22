@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Navigation } from "@/components/Navigation";
 import { Dashboard } from "@/components/Dashboard";
-import { DoctorDashboard } from "@/components/DoctorDashboard";
+import { ClinicianDashboard } from "@/components/ClinicianDashboard";
 import { AdminDashboard } from "@/components/AdminDashboard";
 import { GlucoseTracking } from "@/components/GlucoseTracking";
 import { NutritionTrackingEnhanced } from "@/components/NutritionTrackingEnhanced";
@@ -140,7 +140,7 @@ const Index = () => {
     switch (currentPage) {
       case "dashboard":
         if (userRole === 'admin') return <AdminDashboard />;
-        return userRole === 'clinician' ? <DoctorDashboard /> : <Dashboard onNavigate={setCurrentPage} />;
+        return userRole === 'clinician' ? <ClinicianDashboard /> : <Dashboard onNavigate={setCurrentPage} />;
       case "glucose":
         return userId ? <GlucoseTracking userId={userId} /> : null;
       case "nutrition":
@@ -157,7 +157,7 @@ const Index = () => {
         return <ProfilePage onSignOut={handleSignOut} />;
       default:
         if (userRole === 'admin') return <AdminDashboard />;
-        return userRole === 'clinician' ? <DoctorDashboard /> : <Dashboard onNavigate={setCurrentPage} />;
+        return userRole === 'clinician' ? <ClinicianDashboard /> : <Dashboard onNavigate={setCurrentPage} />;
     }
   };
 
