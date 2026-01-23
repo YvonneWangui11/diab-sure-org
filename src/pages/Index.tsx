@@ -91,7 +91,6 @@ const Index = () => {
           setCurrentPage("dashboard");
           setShowAuth(false);
         } else if (event === 'TOKEN_REFRESHED') {
-          // Token was refreshed, session is still valid
           console.log('Token refreshed');
         }
       }
@@ -136,11 +135,11 @@ const Index = () => {
     }
   };
 
-  const renderCurrentPage = () => {
+  // Render patient-specific pages
+  const renderPatientPage = () => {
     switch (currentPage) {
       case "dashboard":
-        if (userRole === 'admin') return <AdminDashboard />;
-        return userRole === 'clinician' ? <ClinicianDashboard /> : <Dashboard onNavigate={setCurrentPage} />;
+        return <Dashboard onNavigate={setCurrentPage} />;
       case "glucose":
         return userId ? <GlucoseTracking userId={userId} /> : null;
       case "nutrition":
@@ -156,8 +155,7 @@ const Index = () => {
       case "profile":
         return <ProfilePage onSignOut={handleSignOut} />;
       default:
-        if (userRole === 'admin') return <AdminDashboard />;
-        return userRole === 'clinician' ? <ClinicianDashboard /> : <Dashboard onNavigate={setCurrentPage} />;
+        return <Dashboard onNavigate={setCurrentPage} />;
     }
   };
 
@@ -174,6 +172,29 @@ const Index = () => {
     return <AuthPage onAuthSuccess={handleAuthSuccess} />;
   }
 
+  // Route clinicians to their dedicated dashboard (has its own navigation)
+  if (userRole === 'clinician') {
+    return <ClinicianDashboard onSignOut={handleSignOut} />;
+  }
+
+  // Route admins to their dedicated dashboard
+  if (userRole === 'admin') {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navigation 
+          currentPage={currentPage} 
+          onPageChange={setCurrentPage}
+          onSignOut={handleSignOut}
+        />
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <AdminDashboard />
+        </main>
+        <FloatingYvonneButton />
+      </div>
+    );
+  }
+
+  // Default: Patient dashboard with patient navigation
   return (
     <div className="min-h-screen bg-background">
       <Navigation 
@@ -182,7 +203,7 @@ const Index = () => {
         onSignOut={handleSignOut}
       />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {renderCurrentPage()}
+        {renderPatientPage()}
       </main>
       <FloatingYvonneButton />
     </div>
