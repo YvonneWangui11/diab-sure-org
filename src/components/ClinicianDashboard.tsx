@@ -20,6 +20,7 @@ import { MessagingCenter } from "./MessagingCenter";
 import { ReportsExports } from "./ReportsExports";
 import { ProfilePage } from "./ProfilePage";
 import { LoadingSpinner } from "./LoadingSpinner";
+import { useCriticalAlertNotifications } from "@/hooks/useCriticalAlertNotifications";
 
 interface DashboardStats {
   totalPatients: number;
@@ -60,6 +61,17 @@ export const ClinicianDashboard = ({ onSignOut }: ClinicianDashboardProps) => {
   const [todaySchedule, setTodaySchedule] = useState<TodayAppointment[]>([]);
   const [recentAlerts, setRecentAlerts] = useState<any[]>([]);
   const { toast } = useToast();
+
+  // Enable real-time critical alert notifications
+  useCriticalAlertNotifications({
+    doctorId: userProfile?.user_id,
+    enabled: !loading,
+    onNewCriticalAlert: () => {
+      // Refresh stats and alerts when a critical alert comes in
+      loadStats();
+      loadRecentAlerts();
+    },
+  });
 
   useEffect(() => {
     loadClinicianData();
