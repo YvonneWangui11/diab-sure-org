@@ -20,6 +20,8 @@ import { useToast } from "@/hooks/use-toast";
 
 type UserRole = "patient" | "clinician" | "admin";
 
+const ROLE_STORAGE_KEY = "diabesure_active_role";
+
 const Index = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
@@ -46,13 +48,21 @@ const Index = () => {
         const roles = roleData.map(r => r.role as UserRole);
         setUserRoles(roles);
         
-        // Set default active role based on priority: admin > clinician > patient
-        if (roles.includes('admin')) {
-          setActiveRole('admin');
-        } else if (roles.includes('clinician')) {
-          setActiveRole('clinician');
+        // Check localStorage for saved role preference
+        const savedRole = localStorage.getItem(ROLE_STORAGE_KEY) as UserRole | null;
+        
+        // Use saved role if it exists and user still has that role
+        if (savedRole && roles.includes(savedRole)) {
+          setActiveRole(savedRole);
         } else {
-          setActiveRole('patient');
+          // Set default active role based on priority: admin > clinician > patient
+          if (roles.includes('admin')) {
+            setActiveRole('admin');
+          } else if (roles.includes('clinician')) {
+            setActiveRole('clinician');
+          } else {
+            setActiveRole('patient');
+          }
         }
       }
     } catch (error) {
@@ -126,6 +136,7 @@ const Index = () => {
 
   const handleRoleSwitch = (newRole: UserRole) => {
     setActiveRole(newRole);
+    localStorage.setItem(ROLE_STORAGE_KEY, newRole); // Persist to localStorage
     setCurrentPage("dashboard"); // Reset to dashboard when switching roles
     toast({
       title: "Role switched",
@@ -144,6 +155,7 @@ const Index = () => {
       setUserId("");
       setShowAuth(false);
       setCurrentPage("dashboard");
+      localStorage.removeItem(ROLE_STORAGE_KEY); // Clear saved role on sign out
       
       toast({
         title: "Signed out",
