@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Navigation } from "@/components/Navigation";
 import { Dashboard } from "@/components/Dashboard";
-import { ClinicianDashboard } from "@/components/ClinicianDashboard";
+import { ClinicianDashboardRefactored } from "@/components/clinician/ClinicianDashboardRefactored";
 import { AdminDashboard } from "@/components/AdminDashboard";
 import { GlucoseTracking } from "@/components/GlucoseTracking";
 import { NutritionTrackingEnhanced } from "@/components/NutritionTrackingEnhanced";
@@ -211,7 +211,7 @@ const Index = () => {
   // Route based on active role
   if (activeRole === 'clinician') {
     return (
-      <ClinicianDashboard 
+      <ClinicianDashboardRefactored 
         onSignOut={handleSignOut}
         roleSwitcher={
           userRoles.length > 1 ? (

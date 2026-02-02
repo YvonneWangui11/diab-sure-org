@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Search, User, Calendar, Activity, UserPlus, X, Check, UserMinus, Mail, Phone } from "lucide-react";
+import { Search, User, Calendar, Activity, UserPlus, X, Check, UserMinus, Mail, Phone, MessageSquare, CheckSquare, Square } from "lucide-react";
 import { LoadingSpinner } from "./LoadingSpinner";
 import { format } from "date-fns";
 
@@ -64,6 +64,8 @@ export const PatientList = ({ doctorId, onSelectPatient }: PatientListProps) => 
   const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
   const [patientToRemove, setPatientToRemove] = useState<Patient | null>(null);
   const [removingPatient, setRemovingPatient] = useState(false);
+  const [selectedPatients, setSelectedPatients] = useState<Set<string>>(new Set());
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
   const { toast } = useToast();
 
   const loadPatients = async () => {
@@ -292,6 +294,47 @@ export const PatientList = ({ doctorId, onSelectPatient }: PatientListProps) => 
     patient.email.toLowerCase().includes(availableSearchQuery.toLowerCase())
   );
 
+  const togglePatientSelection = (patientId: string) => {
+    setSelectedPatients(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(patientId)) {
+        newSet.delete(patientId);
+      } else {
+        newSet.add(patientId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedPatients.size === filteredPatients.length) {
+      setSelectedPatients(new Set());
+    } else {
+      setSelectedPatients(new Set(filteredPatients.map(p => p.user_id)));
+    }
+  };
+
+  const handleBulkMessage = async () => {
+    if (selectedPatients.size === 0) return;
+    
+    const selectedNames = patients
+      .filter(p => selectedPatients.has(p.user_id))
+      .map(p => p.full_name)
+      .join(', ');
+    
+    toast({
+      title: "Bulk Message",
+      description: `Opening message composer for ${selectedPatients.size} patient(s): ${selectedNames.slice(0, 50)}${selectedNames.length > 50 ? '...' : ''}`,
+    });
+    
+    // Clear selection after action
+    setSelectedPatients(new Set());
+  };
+
+  const clearSelection = () => {
+    setSelectedPatients(new Set());
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -302,12 +345,54 @@ export const PatientList = ({ doctorId, onSelectPatient }: PatientListProps) => 
 
   return (
     <div className="space-y-6">
+      {/* Bulk Selection Bar */}
+      {selectedPatients.size > 0 && (
+        <div className="sticky top-0 z-10 bg-primary/10 border border-primary/20 rounded-lg p-4 flex items-center justify-between animate-in slide-in-from-top-2">
+          <div className="flex items-center gap-3">
+            <CheckSquare className="h-5 w-5 text-primary" />
+            <span className="font-medium">
+              {selectedPatients.size} patient{selectedPatients.size > 1 ? 's' : ''} selected
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button size="sm" onClick={handleBulkMessage}>
+              <MessageSquare className="h-4 w-4 mr-2" />
+              Send Message
+            </Button>
+            <Button size="sm" variant="outline" onClick={clearSelection}>
+              <X className="h-4 w-4 mr-2" />
+              Clear Selection
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold">My Patients</h2>
           <p className="text-muted-foreground">Manage and monitor your patients</p>
         </div>
         <div className="flex items-center gap-3">
+          {filteredPatients.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={toggleSelectAll}
+              className="text-muted-foreground"
+            >
+              {selectedPatients.size === filteredPatients.length ? (
+                <>
+                  <CheckSquare className="h-4 w-4 mr-2" />
+                  Deselect All
+                </>
+              ) : (
+                <>
+                  <Square className="h-4 w-4 mr-2" />
+                  Select All
+                </>
+              )}
+            </Button>
+          )}
           <Badge variant="secondary">{patients.length} patients</Badge>
           <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
             <DialogTrigger asChild>
@@ -440,29 +525,49 @@ export const PatientList = ({ doctorId, onSelectPatient }: PatientListProps) => 
             </CardContent>
           </Card>
         ) : (
-          filteredPatients.map((patient) => (
+          filteredPatients.map((patient) => {
+            const isSelected = selectedPatients.has(patient.user_id);
+            return (
             <Card 
               key={patient.id} 
-              className="hover:shadow-lg transition-shadow group"
+              className={`hover:shadow-lg transition-all group ${isSelected ? 'ring-2 ring-primary bg-primary/5' : ''}`}
             >
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <div 
-                    className="flex items-center gap-3 cursor-pointer flex-1"
-                    onClick={() => onSelectPatient(patient.user_id, patient.full_name)}
-                  >
-                    <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                      <User className="h-6 w-6 text-primary" />
-                    </div>
-                    <div>
-                      <CardTitle className="group-hover:text-primary transition-colors">
-                        {patient.full_name}
-                      </CardTitle>
-                      <CardDescription>{patient.email}</CardDescription>
+                  <div className="flex items-center gap-3 flex-1">
+                    {/* Selection Checkbox */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        togglePatientSelection(patient.user_id);
+                      }}
+                      className={`h-5 w-5 rounded border-2 flex items-center justify-center transition-colors ${
+                        isSelected 
+                          ? 'bg-primary border-primary text-primary-foreground' 
+                          : 'border-muted-foreground/40 hover:border-primary'
+                      }`}
+                      aria-label={isSelected ? 'Deselect patient' : 'Select patient'}
+                    >
+                      {isSelected && <Check className="h-3 w-3" />}
+                    </button>
+                    
+                    <div 
+                      className="flex items-center gap-3 cursor-pointer flex-1"
+                      onClick={() => onSelectPatient(patient.user_id, patient.full_name)}
+                    >
+                      <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                        <User className="h-6 w-6 text-primary" />
+                      </div>
+                      <div>
+                        <CardTitle className="group-hover:text-primary transition-colors">
+                          {patient.full_name}
+                        </CardTitle>
+                        <CardDescription>{patient.email}</CardDescription>
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                    <Badge variant="outline" className="bg-success/10 text-success border-success/30">
                       Active
                     </Badge>
                     <Button
@@ -500,7 +605,8 @@ export const PatientList = ({ doctorId, onSelectPatient }: PatientListProps) => 
                 </div>
               </CardContent>
             </Card>
-          ))
+          );
+          })
         )}
       </div>
 
