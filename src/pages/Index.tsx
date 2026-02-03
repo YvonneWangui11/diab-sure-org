@@ -19,6 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 type UserRole = "patient" | "clinician" | "admin";
+type AuthMode = "patient" | "clinician" | null;
 
 const ROLE_STORAGE_KEY = "diabesure_active_role";
 
@@ -28,6 +29,7 @@ const Index = () => {
   const [activeRole, setActiveRole] = useState<UserRole | null>(null);
   const [currentPage, setCurrentPage] = useState("dashboard");
   const [showAuth, setShowAuth] = useState(false);
+  const [authMode, setAuthMode] = useState<AuthMode>(null);
   const [userId, setUserId] = useState<string>("");
   const [isInitializing, setIsInitializing] = useState(true);
   const { toast } = useToast();
@@ -127,11 +129,18 @@ const Index = () => {
   }, [loadUserRoles]);
 
   const handleGetStarted = () => {
+    setAuthMode("patient");
+    setShowAuth(true);
+  };
+
+  const handleClinicianAccess = () => {
+    setAuthMode("clinician");
     setShowAuth(true);
   };
 
   const handleAuthSuccess = () => {
     setShowAuth(false);
+    setAuthMode(null);
   };
 
   const handleRoleSwitch = (newRole: UserRole) => {
@@ -201,11 +210,11 @@ const Index = () => {
   }
 
   if (!isLoggedIn && !showAuth) {
-    return <LandingPage onGetStarted={handleGetStarted} />;
+    return <LandingPage onGetStarted={handleGetStarted} onClinicianAccess={handleClinicianAccess} />;
   }
 
   if (showAuth) {
-    return <AuthPage onAuthSuccess={handleAuthSuccess} />;
+    return <AuthPage onAuthSuccess={handleAuthSuccess} defaultRole={authMode} />;
   }
 
   // Route based on active role

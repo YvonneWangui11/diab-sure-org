@@ -15,7 +15,8 @@ import {
   CheckCircle,
   ChevronLeft,
   ChevronRight,
-  MessageCircle
+  MessageCircle,
+  Stethoscope
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import heroImage1 from "@/assets/hero-1.jpg";
@@ -24,9 +25,10 @@ import heroImage3 from "@/assets/hero-3.jpg";
 
 interface LandingPageProps {
   onGetStarted: () => void;
+  onClinicianAccess: () => void;
 }
 
-export const LandingPage = ({ onGetStarted }: LandingPageProps) => {
+export const LandingPage = ({ onGetStarted, onClinicianAccess }: LandingPageProps) => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [currentImageSlide, setCurrentImageSlide] = useState(0);
   
@@ -175,8 +177,17 @@ export const LandingPage = ({ onGetStarted }: LandingPageProps) => {
                   className="bg-white text-primary hover:bg-white/90"
                   onClick={onGetStarted}
                 >
-                  Get Started
+                  Get Started as Patient
                   <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
+                <Button 
+                  size="lg" 
+                  variant="outline"
+                  className="bg-transparent border-white text-white hover:bg-white/20"
+                  onClick={onClinicianAccess}
+                >
+                  <Stethoscope className="mr-2 h-5 w-5" />
+                  Clinician Portal
                 </Button>
               </div>
             </div>
@@ -355,14 +366,25 @@ export const LandingPage = ({ onGetStarted }: LandingPageProps) => {
           <p className="text-xl text-white/90 mb-8">
             Join JKUAT Hospital patients who are already using DiabeSure to manage their health effectively.
           </p>
-          <Button 
-            size="lg" 
-            className="bg-white text-primary hover:bg-white/90"
-            onClick={onGetStarted}
-          >
-            Start Your Journey Today
-            <ArrowRight className="ml-2 h-5 w-5" />
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button 
+              size="lg" 
+              className="bg-white text-primary hover:bg-white/90"
+              onClick={onGetStarted}
+            >
+              Start Your Journey Today
+              <ArrowRight className="ml-2 h-5 w-5" />
+            </Button>
+            <Button 
+              size="lg" 
+              variant="outline"
+              className="bg-transparent border-white text-white hover:bg-white/20"
+              onClick={onClinicianAccess}
+            >
+              <Stethoscope className="mr-2 h-5 w-5" />
+              Access Clinician Portal
+            </Button>
+          </div>
         </div>
       </section>
 

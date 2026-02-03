@@ -6,12 +6,14 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Heart, Eye, EyeOff, AlertCircle, CheckCircle2, ArrowLeft } from "lucide-react";
 import { z } from "zod";
 
 interface AuthPageProps {
   onAuthSuccess: () => void;
+  defaultRole?: "patient" | "clinician" | null;
 }
 
 // Validation schemas
@@ -20,7 +22,7 @@ const passwordSchema = z.string().min(8, "Password must be at least 8 characters
 const nameSchema = z.string().min(2, "Name must be at least 2 characters").max(100, "Name is too long");
 const phoneSchema = z.string().regex(/^(\+?254|0)?[17]\d{8}$/, "Please enter a valid Kenyan phone number").optional().or(z.literal(""));
 
-export const AuthPage = ({ onAuthSuccess }: AuthPageProps) => {
+export const AuthPage = ({ onAuthSuccess, defaultRole }: AuthPageProps) => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -31,7 +33,7 @@ export const AuthPage = ({ onAuthSuccess }: AuthPageProps) => {
     fullName: "",
     phone: "",
     dateOfBirth: "",
-    role: "",
+    role: defaultRole === "clinician" ? "doctor" : defaultRole === "patient" ? "patient" : "",
     // Doctor specific fields
     specialization: "",
     licenseNumber: "",
@@ -47,6 +49,9 @@ export const AuthPage = ({ onAuthSuccess }: AuthPageProps) => {
     insuranceId: ""
   });
   const { toast } = useToast();
+
+  // Determine display mode based on defaultRole
+  const isClinicianMode = defaultRole === "clinician";
 
   const validateField = (field: string, value: string): string | null => {
     try {
@@ -86,7 +91,8 @@ export const AuthPage = ({ onAuthSuccess }: AuthPageProps) => {
       const nameError = validateField("fullName", formData.fullName);
       if (nameError) newErrors.fullName = nameError;
       
-      if (!formData.role) {
+      // Only validate role if no default was provided
+      if (!formData.role && !defaultRole) {
         newErrors.role = "Please select a role";
       }
       
@@ -258,9 +264,26 @@ export const AuthPage = ({ onAuthSuccess }: AuthPageProps) => {
               DiabeSure
             </span>
           </div>
-          <CardTitle>{isSignUp ? "Create Account" : "Welcome Back"}</CardTitle>
+          {isClinicianMode && (
+            <Badge className="mx-auto mb-2 bg-secondary/20 text-secondary-foreground border-secondary/30">
+              Clinician Portal
+            </Badge>
+          )}
+          <CardTitle>
+            {isSignUp 
+              ? isClinicianMode ? "Register as Clinician" : "Create Patient Account" 
+              : isClinicianMode ? "Clinician Sign In" : "Welcome Back"
+            }
+          </CardTitle>
           <CardDescription>
-            {isSignUp ? "Join DiabeSure to manage your diabetes journey" : "Sign in to continue your health journey"}
+            {isSignUp 
+              ? isClinicianMode 
+                ? "Register to access the clinician dashboard and manage patients" 
+                : "Join DiabeSure to manage your diabetes journey" 
+              : isClinicianMode 
+                ? "Sign in to access your clinician dashboard" 
+                : "Sign in to continue your health journey"
+            }
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -338,24 +361,27 @@ export const AuthPage = ({ onAuthSuccess }: AuthPageProps) => {
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="role">I am a</Label>
-                  <Select onValueChange={(value) => handleInputChange("role", value)} required>
-                    <SelectTrigger className={errors.role ? "border-destructive" : ""}>
-                      <SelectValue placeholder="Select your role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="patient">Patient</SelectItem>
-                      <SelectItem value="doctor">Doctor / Clinician</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {errors.role && (
-                    <p className="text-sm text-destructive flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3" />
-                      {errors.role}
-                    </p>
-                  )}
-                </div>
+                {/* Only show role selector if no default role was specified */}
+                {!defaultRole && (
+                  <div className="space-y-2">
+                    <Label htmlFor="role">I am a</Label>
+                    <Select onValueChange={(value) => handleInputChange("role", value)} required>
+                      <SelectTrigger className={errors.role ? "border-destructive" : ""}>
+                        <SelectValue placeholder="Select your role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="patient">Patient</SelectItem>
+                        <SelectItem value="doctor">Doctor / Clinician</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {errors.role && (
+                      <p className="text-sm text-destructive flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        {errors.role}
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <Label htmlFor="phone">Phone (Optional)</Label>
