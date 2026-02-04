@@ -142,7 +142,21 @@ export const AuthPage = ({ onAuthSuccess, defaultRole }: AuthPageProps) => {
             description: "Please check your email to verify your account, then complete your profile setup."
           });
         } else if (data.user) {
-          // User is authenticated, create profile
+          // Create user role FIRST (before profile, to avoid trigger creating default patient role)
+          const roleValue = formData.role === 'doctor' ? 'clinician' : 'patient';
+          const { error: roleError } = await supabase
+            .from('user_roles')
+            .insert({
+              user_id: data.user.id,
+              role: roleValue
+            });
+          
+          if (roleError) {
+            console.error('Role creation error:', roleError);
+            // Continue anyway - role might be created by trigger
+          }
+
+          // Now create the profile
           const { error: profileError } = await supabase
             .from('profiles')
             .insert({
@@ -154,17 +168,6 @@ export const AuthPage = ({ onAuthSuccess, defaultRole }: AuthPageProps) => {
             });
 
           if (profileError) throw profileError;
-
-          // Create user role
-          const roleValue = formData.role === 'doctor' ? 'clinician' : 'patient';
-          const { error: roleError } = await supabase
-            .from('user_roles')
-            .insert({
-              user_id: data.user.id,
-              role: roleValue
-            });
-          
-          if (roleError) throw roleError;
 
           // Create role-specific details
           if (formData.role === 'doctor') {
