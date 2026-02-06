@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Heart, LayoutDashboard, Users, Calendar, Pill, AlertTriangle, MessageSquare, FileText, User, LogOut, Search, BookOpen, Settings, ChevronRight, Bell } from "lucide-react";
+import { Heart, LayoutDashboard, Users, Calendar, Pill, AlertTriangle, MessageSquare, FileText, User, LogOut, Search, BookOpen, Settings, ChevronRight, Bell, Shield, Megaphone, Clock } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -38,6 +38,7 @@ interface ClinicianSidebarProps {
     unreadMessages: number;
   };
   onPatientSearch?: (query: string) => void;
+  showAdminSection?: boolean;
 }
 
 const mainNavItems = [
@@ -55,6 +56,13 @@ const secondaryNavItems = [
   { id: "alerts", label: "Alerts Manager", icon: Bell },
 ];
 
+const adminNavItems = [
+  { id: "admin-users", label: "User Management", icon: Users },
+  { id: "admin-audit", label: "Audit Logs", icon: FileText },
+  { id: "admin-announcements", label: "Announcements", icon: Megaphone },
+  { id: "admin-retention", label: "Data Retention", icon: Clock },
+];
+
 export const ClinicianSidebar = ({
   currentPage,
   onPageChange,
@@ -64,6 +72,7 @@ export const ClinicianSidebar = ({
   specialization = "General Practice",
   stats = { activeAlerts: 0, unreadMessages: 0 },
   onPatientSearch,
+  showAdminSection = false,
 }: ClinicianSidebarProps) => {
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
@@ -194,6 +203,43 @@ export const ClinicianSidebar = ({
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {/* Admin Section - only visible if user has admin access */}
+        {showAdminSection && (
+          <>
+            <SidebarSeparator />
+            <SidebarGroup>
+              <SidebarGroupLabel className="flex items-center gap-2">
+                <Shield className="h-3 w-3" />
+                Administration
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {adminNavItems.map((item) => {
+                    const isActive = currentPage === item.id;
+                    return (
+                      <SidebarMenuItem key={item.id}>
+                        <SidebarMenuButton
+                          onClick={() => onPageChange(item.id)}
+                          isActive={isActive}
+                          tooltip={item.label}
+                          className={`transition-colors ${
+                            isActive
+                              ? "bg-secondary/20 text-secondary-foreground font-medium"
+                              : "hover:bg-muted"
+                          }`}
+                        >
+                          <item.icon className="h-4 w-4" />
+                          <span>{item.label}</span>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </>
+        )}
 
         {/* Role Switcher */}
         {roleSwitcher && !isCollapsed && (

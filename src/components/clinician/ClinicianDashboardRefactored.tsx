@@ -25,6 +25,11 @@ import { EducationHub } from "@/components/EducationHub";
 import { ProfilePage } from "@/components/ProfilePage";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { useCriticalAlertNotifications } from "@/hooks/useCriticalAlertNotifications";
+// Admin components
+import { UserRoleManagement } from "@/components/UserRoleManagement";
+import { AuditLogViewer } from "@/components/AuditLogViewer";
+import { AnnouncementsManager } from "@/components/AnnouncementsManager";
+import { DataRetentionManager } from "@/components/DataRetentionManager";
 
 interface DashboardStats {
   totalPatients: number;
@@ -57,6 +62,7 @@ export const ClinicianDashboardRefactored = ({ onSignOut, roleSwitcher }: Clinic
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [selectedPatientName, setSelectedPatientName] = useState<string>('');
   const [patientSearchQuery, setPatientSearchQuery] = useState('');
+  const [hasAdminRole, setHasAdminRole] = useState(false);
   const [stats, setStats] = useState<DashboardStats>({
     totalPatients: 0,
     todayAppointments: 0,
@@ -107,6 +113,17 @@ export const ClinicianDashboardRefactored = ({ onSignOut, roleSwitcher }: Clinic
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+
+      // Check if user has admin role (clinicians can have admin privileges)
+      const { data: roles } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id);
+      
+      if (roles) {
+        const hasAdmin = roles.some(r => r.role === 'admin');
+        setHasAdminRole(hasAdmin);
+      }
 
       const { data: profile } = await supabase
         .from('profiles')
@@ -352,6 +369,19 @@ export const ClinicianDashboardRefactored = ({ onSignOut, roleSwitcher }: Clinic
       
       case 'profile':
         return <ProfilePage onSignOut={onSignOut || (() => {})} />;
+      
+      // Admin pages - only accessible if user has admin role
+      case 'admin-users':
+        return hasAdminRole ? <UserRoleManagement /> : renderOverview();
+      
+      case 'admin-audit':
+        return hasAdminRole ? <AuditLogViewer /> : renderOverview();
+      
+      case 'admin-announcements':
+        return hasAdminRole ? <AnnouncementsManager /> : renderOverview();
+      
+      case 'admin-retention':
+        return hasAdminRole ? <DataRetentionManager /> : renderOverview();
       
       default:
         return renderOverview();
@@ -633,6 +663,7 @@ export const ClinicianDashboardRefactored = ({ onSignOut, roleSwitcher }: Clinic
             unreadMessages: stats.unreadMessages,
           }}
           onPatientSearch={handlePatientSearch}
+          showAdminSection={hasAdminRole}
         />
         <SidebarInset>
           <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-6">
