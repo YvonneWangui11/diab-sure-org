@@ -14,8 +14,6 @@ import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/s
 import { ClinicianSidebar } from "./ClinicianSidebar";
 import { TriageFeed } from "./TriageFeed";
 import { ClinicianYvonneButton } from "./ClinicianYvonneButton";
-import { ClinicianSettings } from "./ClinicianSettings";
-import { PatientQuickView } from "./PatientQuickView";
 import { PatientList } from "@/components/PatientList";
 import { PatientProgressView } from "@/components/PatientProgressView";
 import { AppointmentScheduling } from "@/components/AppointmentScheduling";
@@ -371,9 +369,6 @@ export const ClinicianDashboardRefactored = ({ onSignOut, roleSwitcher }: Clinic
       
       case 'profile':
         return <ProfilePage onSignOut={onSignOut || (() => {})} />;
-      
-      case 'settings':
-        return <ClinicianSettings userId={(userProfile as Record<string, string>)?.user_id} />;
       
       // Admin pages - only accessible if user has admin role
       case 'admin-users':
